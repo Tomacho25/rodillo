@@ -24,6 +24,8 @@ const Strava = window.RodilloStrava = {
     get tokens() { return read(K_TOK); },
     get connected() { return !!this.tokens?.refresh_token; },
     uploaded(id) { return (read(K_UP) || {})[id] || null; },
+    pending: new Set(),      // sesiones subiéndose ahora
+
 };
 
 // 1) link de activación: #strava=<id>.<secret> (al cargar o pegándolo en una pestaña ya abierta)
@@ -80,7 +82,13 @@ Strava.connect = () => {
 Strava.disconnect = () => { write(K_TOK, null); render(); say("Strava desconectado en este navegador"); };
 
 // 3) subir una sesión guardada (TCX) y esperar a que Strava la procese
-Strava.upload = async (sessionId, { quiet = false } = {}) => {
+Strava.upload = async (sessionId, opts) => {
+    Strava.pending.add(sessionId);
+    window.loadTrainerSessions?.();
+    try { return await uploadNow(sessionId, opts); }
+    finally { Strava.pending.delete(sessionId); window.loadTrainerSessions?.(); }
+};
+async function uploadNow(sessionId, { quiet = false } = {}) {
     const s = await window.RodilloEngine.getSession(sessionId);
     if (!s) throw new Error("No encontré la sesión");
     const fd = new FormData();
@@ -110,7 +118,7 @@ Strava.upload = async (sessionId, { quiet = false } = {}) => {
     mark(sessionId, up.activity_id);
     say(`✓ Subida a Strava`, "good");
     return up.activity_id;
-};
+}
 function mark(id, activity) {
     const all = read(K_UP) || {};
     all[id] = String(activity);

@@ -357,3 +357,55 @@
 
 /* escena 3D (three.js): debajo del HUD */
 .scene3d { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; z-index: 0; }
+
+/* ---------- guía de pasos ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.step {
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+    background: var(--m7-panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 10px; color: var(--muted); font: inherit; font-size: 0.82rem; cursor: pointer; text-align: left;
+}
+.step b {
+    flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(138,147,166,0.18); color: var(--txt); font-size: 0.75rem;
+}
+.step span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step:hover { color: var(--txt); }
+.step.done { color: var(--good); }
+.step.done b { background: var(--good); color: #0a0d12; }
+.step.current { color: var(--txt); border-color: var(--accent); background: rgba(79,140,255,0.1); }
+.step.current b { background: var(--accent); color: #fff; }
+@media (max-width: 640px) {
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---------- Pausar / Terminar sobre la escena ---------- */
+.rig-controls {
+    position: absolute; left: 50%; bottom: 148px; transform: translateX(-50%); z-index: 3;
+    display: flex; gap: 8px;
+}
+.rig-controls button {
+    background: rgba(10,13,18,0.78); color: #fff; border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px; padding: 9px 18px; font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.rig-controls button:hover { background: rgba(10,13,18,0.92); }
+.rig-controls button.resume { background: var(--accent); border-color: var(--accent); }
+.rig-controls button.stop { border-color: rgba(224,86,106,0.6); color: #ff8b9b; }
+@media (max-width: 640px) {
+    .rig-controls { bottom: 150px; left: auto; right: 8px; transform: none; }
+    .rig-controls button { padding: 7px 12px; font-size: 0.8rem; }
+}
+
+/* ---------- sesión terminada ---------- */
+.done-card { width: min(480px, 100%); }
+.done-name { font-weight: 600; }
+.done-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.done-stats div { background: var(--m7-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.done-stats span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.done-stats strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.done-actions .ts-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.done-actions .link-btn { padding: 9px 14px; font-size: 0.88rem; }
+.modal-card .modal-actions { gap: 8px; }
+.modal-card .ghost-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+.ts-actions { flex-wrap: wrap; justify-content: flex-end; }

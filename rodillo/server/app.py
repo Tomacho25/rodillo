@@ -128,6 +128,7 @@ class AppState:
         stats = self.session.stats()
         if not finished and stats.duration_s < MIN_PERSIST_S:
             logger.info("Sesión de %.0fs sin terminar — no se guarda", stats.duration_s)
+            await self._fanout(json.dumps({"type": "session_saved", "data": {"id": None, "name": name, "skipped": "short"}}))
             return None
         self._persisted_started_at = started
         self.session.stop()

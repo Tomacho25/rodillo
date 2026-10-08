@@ -634,10 +634,13 @@ async function persist(name, finished) {
     const se = S.session;
     if (se.startedAt == null || se.startedAt === S.persistedAt || !se.samples.length) return null;
     const st = se.stats();
-    if (!finished && st.duration_s < MIN_PERSIST_S) return null;
+    if (S.demo) { S.persistedAt = se.startedAt; se.stop(); emit({ type: "session_saved", data: { id: null, name, simulated: true } }); return null; }
+    if (!finished && st.duration_s < MIN_PERSIST_S) {
+        emit({ type: "session_saved", data: { id: null, name, skipped: "short" } });
+        return null;
+    }
     S.persistedAt = se.startedAt;
     se.stop();
-    if (S.demo) { emit({ type: "session_saved", data: { id: null, name, simulated: true } }); return null; }
     const start = se.startDate || new Date(Date.now() - st.duration_s * 1000);
     const id = `${start.toISOString().slice(0, 16).replace(/[-:T]/g, "")}_${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}`;
     const meta = { id, name, start: start.toISOString(), duration_s: Math.round(st.duration_s),
@@ -787,7 +790,8 @@ class FakeSocket {
         this.readyState = 0;
         setTimeout(() => { this.readyState = 1; S.sockets.add(this); this.onopen?.(); broadcast(); }, 0);
     }
-    send(data) { let c; try { c = JSON.parse(data); } catch { return; } handle(c); }
+    // en orden, como un WebSocket real: ride_load lee la ruta (async) y el ride_start que sigue debe esperarlo
+    send(data) { let c; try { c = JSON.parse(data); } catch { return; } this._q = (this._q || Promise.resolve()).then(() => handle(c)); }
     close() { S.sockets.delete(this); this.readyState = 3; }
 }
 Engine.socket = () => new FakeSocket();

@@ -18,8 +18,44 @@ function stravaCell(id) {
     const act = S.uploaded(id);
     if (act && act !== "dup") return `<a class="link-btn strava-link" href="https://www.strava.com/activities/${encodeURIComponent(act)}" target="_blank" rel="noopener">✓ Ver en Strava</a>`;
     if (act === "dup") return `<span class="muted small">✓ ya estaba en Strava</span>`;
+    if (S.pending?.has(id)) return `<span class="muted small">⏳ subiendo a Strava…</span>`;
     return `<button class="link-btn strava-link" data-strava="${esc(id)}">⤴ Strava</button>`;
 }
+
+// Botones de una sesión guardada (lista y ventana de "terminada")
+function sessionActions(id) {
+    const tcx = window.RodilloEngine
+        ? `<button class="link-btn" data-tcx="${esc(id)}">⤓ TCX</button>`
+        : `<a class="link-btn" href="/api/sessions/${encodeURIComponent(id)}/tcx" download>⤓ TCX</a>`;
+    return `<span class="ts-actions">${stravaCell(id)}${manualCell(id, "garmin")}${tcx}</span>`;
+}
+
+function downloadTcx(id) {
+    if (window.RodilloEngine) return window.RodilloEngine.downloadTcx(id);
+    const a = document.createElement("a");
+    a.href = `/api/sessions/${encodeURIComponent(id)}/tcx`;
+    a.download = "";
+    document.body.appendChild(a); a.click(); a.remove();
+}
+
+// delegación: sirve para la lista y para la ventana aunque se re-dibujen
+document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-tcx],[data-manual],[data-strava]");
+    if (!b) return;
+    if (b.dataset.tcx) return downloadTcx(b.dataset.tcx);
+    if (b.dataset.manual) {
+        const where = b.dataset.manual;
+        const tab = window.open(IMPORT_PAGES[where], "_blank");   // abrir antes del await (bloqueador de popups)
+        if (tab) tab.opener = null;
+        await downloadTcx(b.dataset.id);
+        toast(`TCX descargado: arrastralo a la página de ${where === "garmin" ? "Garmin Connect (Importar datos)" : "Strava (Subir archivo)"} que se abrió`, "good");
+        if (!tab) toast("El navegador bloqueó la pestaña nueva: abrí " + IMPORT_PAGES[where], "warn");
+        return;
+    }
+    b.disabled = true; b.textContent = "Subiendo…";
+    try { await window.RodilloStrava.upload(b.dataset.strava); }
+    catch (err) { toast("Strava: " + err.message, "bad"); b.disabled = false; b.textContent = "⤴ Strava"; }
+});
 
 async function loadTrainerSessions() {
     const list = $("trainer-sessions-list");
@@ -34,34 +70,57 @@ async function loadTrainerSessions() {
                 <div class="ts-head">
                     <div><strong>${esc(s.name)}</strong>
                         <span class="muted">${esc((s.start || "").replace("T", " ").slice(0, 16))} · ${Math.round((s.duration_s || 0) / 60)} min</span></div>
-                    ${window.RodilloEngine
-                        ? `<span class="ts-actions">${stravaCell(s.id)}${manualCell(s.id, "garmin")}<button class="link-btn" data-tcx="${esc(s.id)}">⤓ TCX</button></span>`
-                        : `<a class="link-btn" href="/api/sessions/${encodeURIComponent(s.id)}/tcx" download>⤓ TCX</a>`}
+                    ${sessionActions(s.id)}
                 </div>
                 <div class="ts-stats muted">
                     ${s.avg_power_w ?? "—"} W medios · NP ${s.np_w ?? "—"} W · FC ${s.avg_hr ?? "—"}/${s.max_hr ?? "—"} ·
                     ${s.avg_cadence ?? "—"} rpm · ${s.distance_m ? (s.distance_m / 1000).toFixed(1) + " km" : "—"}
                 </div>
             </div>`).join("");
-        list.querySelectorAll("[data-tcx]").forEach(b => b.addEventListener("click", () => window.RodilloEngine.downloadTcx(b.dataset.tcx)));
-        list.querySelectorAll("[data-manual]").forEach(b => b.addEventListener("click", async () => {
-            const where = b.dataset.manual;
-            const tab = window.open(IMPORT_PAGES[where], "_blank");   // abrir antes del await (bloqueador de popups)
-            if (tab) tab.opener = null;
-            await window.RodilloEngine.downloadTcx(b.dataset.id);
-            toast(`TCX descargado: arrastralo a la página de ${where === "garmin" ? "Garmin Connect (Importar datos)" : "Strava (Subir archivo)"} que se abrió`, "good");
-            if (!tab) toast("El navegador bloqueó la pestaña nueva: abrí " + IMPORT_PAGES[where], "warn");
-        }));
-        list.querySelectorAll("[data-strava]").forEach(b => b.addEventListener("click", async () => {
-            b.disabled = true; b.textContent = "Subiendo…";
-            try { await window.RodilloStrava.upload(b.dataset.strava); }
-            catch (e) { toast("Strava: " + e.message, "bad"); b.disabled = false; b.textContent = "⤴ Strava"; }
-        }));
+        renderSessionDone();
     } catch (e) {
         list.innerHTML = `<div class="loading-empty err">No pude leer las sesiones: ${esc(e.message)}</div>`;
     }
 }
 $("btn-refresh-sessions").addEventListener("click", loadTrainerSessions);
+window.loadTrainerSessions = loadTrainerSessions;
+
+// ---- ventana "Sesión terminada": resumen + dónde subirla
+const doneModal = $("done-modal");
+let doneData = null;
+window.showSessionDone = data => {
+    doneData = data;
+    renderSessionDone();
+    doneModal.hidden = false;
+};
+function renderSessionDone() {
+    if (!doneData) return;
+    const d = doneData, st = d.stats || {};
+    const item = (l, v) => v ? `<div><span>${l}</span><strong>${v}</strong></div>` : "";
+    $("done-name").textContent = d.name || "";
+    $("done-stats").innerHTML =
+        item("Duración", st.duration_s ? formatDuration(st.duration_s) : "")
+        + item("Distancia", st.distance_m ? `${(st.distance_m / 1000).toFixed(1)} km` : "")
+        + item("Potencia media", st.avg_power_w ? `${Math.round(st.avg_power_w)} W` : "")
+        + item("NP", st.normalized_power_w ? `${Math.round(st.normalized_power_w)} W` : "")
+        + item("FC media", st.avg_hr_bpm ? `${Math.round(st.avg_hr_bpm)} ppm` : "");
+    const S = window.RodilloStrava;
+    if (d.simulated) {
+        $("done-note").textContent = "Modo demo: los watts son simulados, así que esta sesión no se guarda. Con el rodillo conectado, acá vas a poder subirla.";
+        $("done-actions").innerHTML = "";
+    } else {
+        $("done-note").innerHTML = "✓ Guardada en <b>Tus sesiones</b>. "
+            + (S?.connected ? "Se sube sola a Strava; para Garmin, el botón descarga el archivo y abre la página de importación."
+                : "Para subirla: el botón descarga el archivo (TCX) y abre la página de importación, donde lo arrastrás.");
+        $("done-actions").innerHTML = sessionActions(d.id);
+    }
+}
+const closeDone = () => { doneModal.hidden = true; };
+$("done-close").addEventListener("click", closeDone);
+$("done-ok").addEventListener("click", closeDone);
+$("done-list").addEventListener("click", () => { closeDone(); goTo("trainer-recent"); });
+doneModal.addEventListener("click", e => { if (e.target === doneModal) closeDone(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDone(); settingsModal.hidden = true; } });
 
 // ---- ajustes
 const settingsModal = $("settings-modal"), settingsForm = $("settings-form");

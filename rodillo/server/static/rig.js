@@ -143,9 +143,12 @@ function connectWs() {
             case "workout_event": onWorkoutEvent(msg.data); break;
             case "ride_event": onRideEvent(msg.data); break;
             case "session_saved":
-                if (msg.data?.simulated) { toast("Simulador: la sesión no se guarda en tu historial"); break; }
-                toast(`✓ Sesión guardada · ${msg.data?.name || ""}`, "good");
+                if (msg.data?.skipped === "short") { toast("No se guardó: duró menos de 2 min", "warn"); break; }
+                R.lastSaved = { ...msg.data, stats: R.lastStats };
                 if (typeof loadTrainerSessions === "function") loadTrainerSessions();
+                // después del banner/confeti de llegada
+                setTimeout(() => window.showSessionDone?.(R.lastSaved), 1200);
+                renderSteps();
                 break;
             case "saved": toast("CSV exportado"); break;
             case "error": toast("⚠ " + msg.message, "bad"); break;
@@ -337,6 +340,7 @@ function onState(st) {
     R.rideRoute = st.ride_route;
 
     if (R.rideRoute && R.rideRoute.id !== R.profileId) ensureRideProfile(R.rideRoute.id);
+    if (!R.rideRoute) R.loadedKey = null;
     if (!R.rideRoute && R.profileId) { R.profile = null; R.profileId = null; R.track = null; }
 
     // Si algo arrancó, mostrar su tab
@@ -404,11 +408,72 @@ function renderModeChrome() {
     m.textContent = msg;
     m.hidden = !msg;
 
+    renderRigControls();
+    renderSteps();
+
     const titles = { ride: "Perfil de la ruta", workout: "Bloques del workout", free: "Potencia" };
     const stripMode = wk ? "workout" : ride ? "ride" : "free";
     $("strip-title").textContent = R.activeTitle ? `▶ ${R.activeTitle}` : titles[stripMode];
     R.stripMode = stripMode;
 }
+
+// Qué está corriendo ahora (para Pausar/Terminar sobre la escena)
+function activeKind() {
+    const run = st => st === "running" || st === "paused";
+    if ((R.mode === "workout" || R.mode === "combo") && run(R.workout?.state)) return "workout";
+    if (R.mode === "ride" && run(R.ride?.state)) return "ride";
+    if (R.mode === "free" && R.sessionActive && R.freeRecording) return "free";
+    return null;
+}
+
+function renderRigControls() {
+    const kind = activeKind();
+    $("rig-controls").hidden = !kind;
+    if (!kind) return;
+    const paused = kind === "workout" ? R.workout?.state === "paused" : kind === "ride" ? R.ride?.state === "paused" : false;
+    const pb = $("rig-pause");
+    pb.hidden = kind === "free";
+    pb.textContent = paused ? "▶ Seguir" : "⏸ Pausar";
+    pb.classList.toggle("resume", paused);
+}
+
+function stopActivity() {
+    const kind = activeKind();
+    if (!kind) return;
+    const dur = R.lastStats?.duration_s || 0;
+    const msg = R.simulated ? "¿Terminar? (modo demo: la sesión no se guarda)"
+        : dur < 120 ? "Llevás menos de 2 minutos: si terminás ahora la sesión NO se guarda. ¿Terminar igual?"
+        : "¿Terminar? La sesión se guarda y después la podés subir a Strava o Garmin.";
+    if (!confirm(msg)) return;
+    R.freeRecording = false;
+    send(kind === "workout" ? "workout_stop" : kind === "ride" ? "ride_stop" : "session_stop");
+}
+
+function togglePause() {
+    const kind = activeKind();
+    if (kind === "workout") send(R.workout?.state === "paused" ? "workout_resume" : "workout_pause");
+    else if (kind === "ride") send(R.ride?.state === "paused" ? "ride_resume" : "ride_pause");
+}
+$("rig-pause").addEventListener("click", togglePause);
+$("rig-stop").addEventListener("click", stopActivity);
+
+// Guía de pasos: 1 conectar · 2 elegir · 3 pedalear · 4 terminar y subir
+function renderSteps() {
+    const active = !!activeKind();
+    const done = {
+        connect: R.trainerConnected,
+        pick: !!(R.rideRoute || R.workoutLoaded || active),
+        ride: !!R.lastSaved && !active,
+        done: false,
+    };
+    const current = active ? "ride" : R.lastSaved ? "done" : ["connect", "pick", "ride"].find(k => !done[k]) || "ride";
+    document.querySelectorAll("#steps .step").forEach(b => {
+        b.classList.toggle("done", !!done[b.dataset.step] && b.dataset.step !== current);
+        b.classList.toggle("current", b.dataset.step === current);
+    });
+}
+function goTo(id) { $(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+document.querySelectorAll("#steps .step").forEach(b => b.addEventListener("click", () => goTo(b.dataset.go)));
 
 // ---------------------------------------------------------- zone strip -----
 
@@ -641,12 +706,15 @@ $("btn-load-fit").addEventListener("click", async () => {
 $("btn-workout-start").addEventListener("click", () => {
     unlockAudio();
     if (R.workout?.state === "paused") return send("workout_resume");
+    R.lastSaved = null;
+    goTo("rig");
     const scen = $("wk-scenario").value;
     if (!scen) return send("workout_start");
     const { base, from, to } = parseRouteId(scen);
     const label = $("wk-scenario").selectedOptions[0]?.textContent.split(" · ").slice(0, -1).join(" · ");
     const payload = { route_id: base, name: label || undefined };
     if (from != null) { payload.from_m = from; payload.to_m = to; }
+    R.loadedKey = null;      // la ruta cargada pasa a ser el escenario del workout
     if (send("ride_load", payload)) send("combo_start");
 });
 
@@ -686,9 +754,7 @@ function estimateFromBins(gbins) {
 }
 $("btn-workout-pause").addEventListener("click", () => send("workout_pause"));
 $("btn-workout-skip").addEventListener("click", () => send("workout_skip"));
-$("btn-workout-stop").addEventListener("click", () => {
-    if (confirm("¿Terminar el workout? Si pasaron más de 2 min, la sesión se guarda.")) send("workout_stop");
-});
+$("btn-workout-stop").addEventListener("click", stopActivity);
 $("btn-workout-clear").addEventListener("click", () => send("workout_stop"));
 
 // ----------------------------------------------------------------- libre ---
@@ -697,8 +763,12 @@ target.addEventListener("input", e => { $("target-display").textContent = e.targ
 target.addEventListener("change", e => send("set_target_power", { watts: parseInt(e.target.value) }));
 document.querySelectorAll("[data-grade]").forEach(b => b.addEventListener("click", () =>
     send("set_grade", { percent: parseFloat(b.dataset.grade) })));
-$("btn-session-start").addEventListener("click", () => { send("session_start"); toast("Grabando rodaje libre"); });
-$("btn-session-stop").addEventListener("click", () => send("session_stop"));
+$("btn-session-start").addEventListener("click", () => {
+    if (send("session_start")) { R.freeRecording = true; R.lastSaved = null; toast("Grabando rodaje libre — terminalo con ⏹ sobre la escena"); goTo("rig"); }
+});
+$("btn-session-stop").addEventListener("click", () => {
+    if (activeKind() === "free") stopActivity(); else send("session_stop");
+});
 $("btn-session-save").addEventListener("click", () => send("session_save"));
 $("btn-request").addEventListener("click", () => send("request_control"));
 $("btn-trainer-start").addEventListener("click", () => send("trainer_start"));
@@ -862,7 +932,7 @@ function steadySpeed(P, g, m) {
     return Math.max(lo, 1.5);
 }
 
-["rp-from", "rp-to"].forEach(id => $(id).addEventListener("input", () => { updatePreviewMeta(); drawPreview(); }));
+["rp-from", "rp-to"].forEach(id => $(id).addEventListener("input", () => { updatePreviewMeta(); drawPreview(); renderRidePanel(); }));
 $("rp-full").addEventListener("click", () => {
     if (!R.preview) return;
     $("rp-from").value = 0;
@@ -872,24 +942,32 @@ $("rp-full").addEventListener("click", () => {
 $("rp-diff").addEventListener("input", e => { $("rp-diff-v").textContent = e.target.value + "%"; });
 $("rp-diff").addEventListener("change", e => send("ride_difficulty", { pct: parseInt(e.target.value) }));
 
-$("ride-load").addEventListener("click", () => {
+// la ruta + tramo que muestra la vista previa ("act:1" o "act:1@500-3000")
+function previewKey() {
     const rg = previewRange();
-    if (!R.previewId || !rg) return;
-    const payload = { route_id: R.previewBase || R.previewId, name: $("rp-name").textContent };
-    if (!rg.full) { payload.from_m = Math.round(rg.a); payload.to_m = Math.round(rg.b); }
-    if (send("ride_load", payload)) {
-        send("ride_difficulty", { pct: parseInt($("rp-diff").value) });
-        toast("Ruta cargada — ▶ Rodar cuando quieras");
-    }
-});
+    if (!R.previewId || !rg) return null;
+    const base = R.previewBase || R.previewId;
+    return rg.full ? base : `${base}@${Math.round(rg.a)}-${Math.round(rg.b)}`;
+}
+function previewIsLoaded() { return !!R.rideRoute && R.loadedKey === previewKey(); }
+
 $("ride-start").addEventListener("click", () => {
     unlockAudio();
-    send(R.ride?.state === "paused" ? "ride_resume" : "ride_start");
+    if (R.ride?.state === "paused") return send("ride_resume");
+    const key = previewKey();
+    if (key && !previewIsLoaded()) {
+        const rg = previewRange();
+        const payload = { route_id: R.previewBase || R.previewId, name: $("rp-name").textContent };
+        if (!rg.full) { payload.from_m = Math.round(rg.a); payload.to_m = Math.round(rg.b); }
+        if (!send("ride_load", payload)) return;
+        send("ride_difficulty", { pct: parseInt($("rp-diff").value) });
+        R.loadedKey = key;
+    } else if (!R.rideRoute) return toast("Elegí una ruta de la lista");
+    R.lastSaved = null;
+    if (send("ride_start")) goTo("rig");
 });
 $("ride-pause").addEventListener("click", () => send("ride_pause"));
-$("ride-stop").addEventListener("click", () => {
-    if (confirm("¿Terminar la ruta? Si rodaste más de 2 min, la sesión se guarda.")) send("ride_stop");
-});
+$("ride-stop").addEventListener("click", stopActivity);
 
 $("gpx-input").addEventListener("change", async e => {
     const f = e.target.files[0];
@@ -914,16 +992,17 @@ function renderRidePanel() {
     const st = R.ride?.state || "idle";
     const active = st === "running" || st === "paused";
     const wkBusy = R.mode === "workout" || R.mode === "combo";
-    $("ride-load").disabled = !R.preview || active;
-    $("ride-start").disabled = !R.rideRoute || st === "running" || wkBusy;
-    $("ride-start").textContent = st === "paused" ? "▶ Seguir" : st === "finished" ? "↻ Otra vez" : "▶ Rodar";
+    const same = !R.preview || previewIsLoaded();
+    $("ride-start").disabled = (!R.preview && !R.rideRoute) || st === "running" || wkBusy;
+    $("ride-start").textContent = st === "running" ? "Rodando…" : st === "paused" ? "▶ Seguir"
+        : st === "finished" && same ? "↻ Otra vez" : "▶ Rodar esta ruta";
     $("ride-pause").disabled = st !== "running" || wkBusy;
     $("ride-stop").disabled = !active || wkBusy;
     const hint = $("rp-hint");
     if (R.rideRoute) {
         hint.innerHTML = `Cargada: <b>${esc(R.rideRoute.name)}</b> · ${fmtKm(R.rideRoute.distance_m)} km · +${R.rideRoute.climb_m} m`;
     } else {
-        hint.textContent = "En modo Ruta el rodillo simula la pendiente: los watts los ponés vos con cambios y cadencia.";
+        hint.textContent = "El rodillo simula la pendiente: los watts los ponés vos con cambios y cadencia. Al terminar, la sesión se guarda y la subís a Strava o Garmin.";
     }
     if (R.ride?.difficulty_pct != null && document.activeElement !== $("rp-diff")) {
         $("rp-diff").value = R.ride.difficulty_pct;

@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>rodillo</title>
     <meta name="description" content="App open source para rodillos inteligentes (Bluetooth FTMS): rutas épicas en 3D, workouts en ERG y simulación de pendiente.">
-    <link rel="stylesheet" href="/static/base.css?v=1">
-    <link rel="stylesheet" href="/static/rig.css?v=1">
+    <link rel="stylesheet" href="/static/base.css?v=2">
+    <link rel="stylesheet" href="/static/rig.css?v=2">
 </head>
 <body>
 <main class="main">
     <!-- =============== VIEW: TRAINER =============== -->
     <section class="view view-trainer active" id="view-trainer">
-        <div class="home-head rig-head">
+        <div class="home-head rig-head" id="rig-head">
             <div>
                 <div class="home-label">rodillo · open source</div>
                 <h1 id="rig-greeting">Rodillo</h1>
@@ -27,6 +27,14 @@
                 <div id="status" class="conn-pill disconnected">Desconectado</div>
             </div>
         </div>
+
+        <!-- Guía: en qué paso vas -->
+        <nav class="steps" id="steps" aria-label="Pasos">
+            <button class="step" data-step="connect" data-go="rig-head"><b>1</b><span>Conectá el rodillo</span></button>
+            <button class="step" data-step="pick" data-go="rig-panel"><b>2</b><span>Elegí ruta o workout</span></button>
+            <button class="step" data-step="ride" data-go="rig"><b>3</b><span>Pedaleá</span></button>
+            <button class="step" data-step="done" data-go="trainer-recent"><b>4</b><span>Terminá y subila</span></button>
+        </nav>
 
         <!-- Escena tipo Zwift -->
         <div class="rig" id="rig">
@@ -109,6 +117,11 @@
                 <div class="zone-strip" id="zone-strip"></div>
             </div>
 
+            <div class="rig-controls" id="rig-controls" hidden>
+                <button id="rig-pause">⏸ Pausar</button>
+                <button id="rig-stop" class="stop">⏹ Terminar</button>
+            </div>
+
             <div class="rig-buttons">
                 <button id="rig-sound" title="Pitidos de cambio de bloque">🔔</button>
                 <button id="rig-fs" title="Pantalla completa">⛶</button>
@@ -116,7 +129,7 @@
         </div>
 
         <!-- Panel de control -->
-        <div class="rig-panel">
+        <div class="rig-panel" id="rig-panel">
             <div class="time-picker">
                 <span class="tp-label">¿Cuánto tiempo tenés?</span>
                 <div class="tp-chips" id="tp-chips">
@@ -153,7 +166,7 @@
                     </div>
                     <div class="ride-preview">
                         <div class="rp-head">
-                            <strong id="rp-name">Elegí una ruta</strong>
+                            <strong id="rp-name">← Elegí una ruta de la lista</strong>
                             <span id="rp-meta" class="muted"></span>
                         </div>
                         <canvas id="rp-profile"></canvas>
@@ -168,12 +181,11 @@
                             <span class="muted small">100% = pendiente real · 50% = default de Zwift</span>
                         </div>
                         <div class="rp-actions">
-                            <button id="ride-load" class="primary" disabled>Cargar ruta</button>
-                            <button id="ride-start" class="primary big" disabled>▶ Rodar</button>
+                            <button id="ride-start" class="primary big" disabled>▶ Rodar esta ruta</button>
                             <button id="ride-pause" disabled>⏸ Pausar</button>
                             <button id="ride-stop" disabled>⏹ Terminar</button>
                         </div>
-                        <div class="rp-hint muted small" id="rp-hint">En modo Ruta el rodillo simula la pendiente: los watts los ponés vos con cambios y cadencia.</div>
+                        <div class="rp-hint muted small" id="rp-hint">El rodillo simula la pendiente: los watts los ponés vos con cambios y cadencia. Al terminar, la sesión se guarda y la subís a Strava o Garmin.</div>
                     </div>
                 </div>
             </div>
@@ -288,9 +300,9 @@
             </div>
         </section>
 
-        <section class="trainer-recent">
+        <section class="trainer-recent" id="trainer-recent">
             <div class="trainer-recent-head">
-                <h2>Tus sesiones <span class="muted small">— descargá el TCX y subilo a Garmin Connect o Strava</span></h2>
+                <h2>📁 Tus sesiones <span class="muted small">— cada entrenamiento terminado queda acá para subirlo a Strava o Garmin</span></h2>
                 <button id="btn-refresh-sessions" class="link-btn">↻ Refrescar</button>
             </div>
             <div id="trainer-sessions-list">
@@ -322,11 +334,21 @@
     </form>
 </div>
 
+<div class="modal-overlay" id="done-modal" hidden>
+    <div class="modal-card done-card" role="dialog" aria-labelledby="done-title">
+        <div class="modal-head"><h2 id="done-title">🏁 Sesión terminada</h2><button type="button" class="modal-close" id="done-close">✕</button></div>
+        <div class="done-name" id="done-name"></div>
+        <div class="done-stats" id="done-stats"></div>
+        <p class="hint" id="done-note"></p>
+        <div class="done-actions" id="done-actions"></div>
+        <div class="modal-actions"><button type="button" class="ghost-btn" id="done-list">Ver tus sesiones</button><button type="button" class="primary" id="done-ok">Listo</button></div>
+    </div>
+</div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script type="importmap">{"imports": {"three": "/static/vendor/three.module.min.js"}}</script>
-<script src="/static/rig.js?v=1"></script>
-<script src="/static/boot.js?v=1"></script>
-<script type="module" src="/static/scene3d.js?v=1"></script>
+<script src="/static/rig.js?v=2"></script>
+<script src="/static/boot.js?v=2"></script>
+<script type="module" src="/static/scene3d.js?v=2"></script>
 </body>
 </html>
