@@ -1,0 +1,63 @@
+/* rodillo · estilos base (tema oscuro). rig.css trae los del rodillo. */
+:root {
+    --bg: #0a0d12; --panel: #181c25; --panel-2: #20242f;
+    --m7-bg: #0a0d12; --m7-panel: #131720; --m7-panel-2: #1c2230; --border: #1f2530;
+    --txt: #e6e8ee; --muted: #8a93a6; --accent: #4f8cff;
+    --good: #36c585; --warn: #f0a948; --bad: #e0566a;
+    --z1: #4ea1ff; --z2: #36c585; --z3: #f0c948; --z4: #f0a948; --z5: #e0566a;
+    color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow-x: hidden; }
+body { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh; }
+.main { max-width: 1280px; margin: 0 auto; min-width: 0; }
+.view { display: none; padding: 24px 28px; }
+.view.active { display: block; }
+.home-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.home-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.home-head h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.3px; }
+.home-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.conn-pill { font-size: 0.72rem; padding: 4px 12px; border-radius: 999px; font-weight: 500; border: none; font-family: inherit; }
+.conn-pill.connected { background: rgba(54,197,133,0.18); color: var(--good); }
+.conn-pill.disconnected, .conn-pill.warn { background: rgba(240,169,72,0.15); color: var(--warn); }
+.conn-pill.neutral { background: rgba(138,147,166,0.14); color: var(--muted); }
+.pill-btn { cursor: pointer; }
+.pill-btn:hover { color: var(--txt); }
+.muted { color: var(--muted); }
+.loading-empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 0.9rem; }
+.loading-empty.err { color: var(--bad); }
+.link-btn { background: rgba(79,140,255,0.12); border: 1px solid rgba(79,140,255,0.25); color: var(--accent);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; text-decoration: none; font-family: inherit; }
+.link-btn:hover { background: rgba(79,140,255,0.2); }
+code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.85em; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; }
+
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 2000;
+    background: var(--panel-2); color: var(--txt); padding: 10px 20px; border-radius: 8px;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none; border: 1px solid #2c3142;
+    max-width: min(520px, 90vw); text-align: center; font-size: 0.88rem; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.toast.show { opacity: 1; }
+.toast.good { border-color: rgba(54,197,133,0.5); }
+.toast.warn { border-color: rgba(240,169,72,0.5); }
+.toast.bad { border-color: rgba(224,86,106,0.6); }
+
+/* sesiones */
+.trainer-recent { margin-top: 20px; }
+.trainer-recent-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.trainer-recent-head h2 { font-size: 0.95rem; font-weight: 500; color: var(--muted); }
+.trainer-session-row { background: var(--m7-panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.ts-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+.ts-head strong { margin-right: 8px; }
+.ts-stats { font-size: 0.78rem; }
+
+/* modal de ajustes */
+.modal-overlay { position: fixed; inset: 0; z-index: 1500; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal-overlay[hidden] { display: none; }
+.modal-card { background: var(--m7-panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; width: min(420px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; }
+.modal-head h2 { font-size: 1.05rem; }
+.modal-close { background: transparent; border: none; color: var(--muted); font-size: 1rem; cursor: pointer; }
+.modal-card label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 0.88rem; color: var(--muted); }
+.modal-card input { width: 160px; background: var(--m7-bg); color: var(--txt); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font: inherit; }
+.modal-actions { display: flex; justify-content: flex-end; }
+.modal-actions .primary { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+@media (max-width: 560px) { .view { padding: 12px; } }

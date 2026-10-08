@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>rodillo</title>
+    <meta name="description" content="App open source para rodillos inteligentes (Bluetooth FTMS): rutas épicas en 3D, workouts en ERG y simulación de pendiente.">
+    <link rel="stylesheet" href="/static/base.css?v=1">
+    <link rel="stylesheet" href="/static/rig.css?v=1">
+</head>
+<body>
+<main class="main">
+    <!-- =============== VIEW: TRAINER =============== -->
+    <section class="view view-trainer active" id="view-trainer">
+        <div class="home-head rig-head">
+            <div>
+                <div class="home-label">rodillo · open source</div>
+                <h1 id="rig-greeting">Rodillo</h1>
+            </div>
+            <div class="home-head-actions">
+                <button id="btn-settings" class="conn-pill neutral pill-btn" title="FTP, peso y FC máxima">⚙ Ajustes</button>
+                <span id="rig-hr-pill" class="conn-pill neutral" title="Banda de FC">♥ sin banda</span>
+                <div id="status" class="conn-pill disconnected">Desconectado</div>
+            </div>
+        </div>
+
+        <!-- Escena tipo Zwift -->
+        <div class="rig" id="rig">
+            <canvas id="scene"></canvas>
+
+            <div class="hud-top">
+                <div class="hud-tile hud-power" id="hud-power-tile">
+                    <div class="hud-l">Potencia 3s</div>
+                    <div class="hud-v"><span id="hud-power">—</span><small>W</small></div>
+                    <div class="hud-s" id="hud-wkg">— W/kg</div>
+                </div>
+                <div class="hud-tile" id="hud-hr-tile">
+                    <div class="hud-l">FC</div>
+                    <div class="hud-v"><span id="hud-hr">—</span><small>ppm</small></div>
+                    <div class="hud-s" id="hud-hr-zone">&nbsp;</div>
+                </div>
+                <div class="hud-tile">
+                    <div class="hud-l">Cadencia</div>
+                    <div class="hud-v"><span id="hud-cad">—</span><small>rpm</small></div>
+                    <div class="hud-s" id="hud-cad-avg">&nbsp;</div>
+                </div>
+                <div class="hud-tile">
+                    <div class="hud-l">Velocidad</div>
+                    <div class="hud-v"><span id="hud-speed">—</span><small>km/h</small></div>
+                    <div class="hud-s" id="hud-speed-src">&nbsp;</div>
+                </div>
+                <div class="hud-tile">
+                    <div class="hud-l">Distancia</div>
+                    <div class="hud-v"><span id="hud-dist">0.00</span><small>km</small></div>
+                    <div class="hud-s" id="hud-dist-rem">&nbsp;</div>
+                </div>
+                <div class="hud-tile">
+                    <div class="hud-l">Tiempo</div>
+                    <div class="hud-v"><span id="hud-time">00:00</span></div>
+                    <div class="hud-s" id="hud-np">&nbsp;</div>
+                </div>
+            </div>
+
+            <div class="hud-grade" id="hud-grade" hidden>
+                <div class="g-v" id="hud-grade-v">0.0<small>%</small></div>
+                <div class="g-l">pendiente</div>
+                <div class="g-ahead" id="hud-grade-ahead"></div>
+            </div>
+
+            <div class="hud-ghost" id="hud-ghost" hidden>
+                <div class="gh-l">👻 <span id="hud-ghost-name">Tu salida original</span></div>
+                <div class="gh-v" id="hud-ghost-gap">—</div>
+            </div>
+
+            <div class="hud-interval" id="hud-interval" hidden>
+                <div class="iv-head"><span id="iv-label">—</span><span id="iv-count" class="muted"></span></div>
+                <div class="iv-main">
+                    <div class="iv-target" id="iv-target">—</div>
+                    <div class="iv-time" id="iv-time">0:00</div>
+                </div>
+                <div class="iv-bar"><div id="iv-bar-fill"></div></div>
+                <div class="iv-delta" id="iv-delta">&nbsp;</div>
+                <div class="iv-next" id="iv-next"></div>
+            </div>
+
+            <div class="hud-title" id="hud-title" hidden></div>
+            <div class="hud-banner" id="hud-banner" hidden>
+                <div class="bn-kicker" id="bn-kicker">Siguiente bloque</div>
+                <div class="bn-main" id="bn-main">—</div>
+                <div class="bn-sub" id="bn-sub"></div>
+            </div>
+            <div class="hud-countdown" id="hud-countdown" hidden></div>
+            <canvas id="fx" class="fx"></canvas>
+
+            <div class="hud-center-msg" id="hud-msg">Elegí una ruta o un workout abajo y empezá a pedalear</div>
+
+            <canvas id="minimap" class="minimap" width="170" height="170" hidden></canvas>
+
+            <div class="hud-bottom">
+                <div class="strip-head">
+                    <span id="strip-title">Potencia</span>
+                    <span id="strip-meta" class="muted"></span>
+                </div>
+                <canvas id="strip"></canvas>
+                <div class="zone-strip" id="zone-strip"></div>
+            </div>
+
+            <div class="rig-buttons">
+                <button id="rig-sound" title="Pitidos de cambio de bloque">🔔</button>
+                <button id="rig-fs" title="Pantalla completa">⛶</button>
+            </div>
+        </div>
+
+        <!-- Panel de control -->
+        <div class="rig-panel">
+            <div class="time-picker">
+                <span class="tp-label">¿Cuánto tiempo tenés?</span>
+                <div class="tp-chips" id="tp-chips">
+                    <button data-min="30">30′</button>
+                    <button data-min="45">45′</button>
+                    <button data-min="60">1 h</button>
+                    <button data-min="90">1 h 30</button>
+                    <button data-min="120">2 h+</button>
+                    <button data-min="" class="active">Todo</button>
+                </div>
+                <label class="tp-pace">a ritmo
+                    <select id="tp-pace">
+                        <option value="0.65">Z2 suave</option>
+                        <option value="0.75" selected>Z2</option>
+                        <option value="0.85">Tempo</option>
+                    </select>
+                </label>
+            </div>
+            <div class="mode-tabs" role="tablist">
+                <button class="mode-tab active" data-mode="ride">🗺 Ruta</button>
+                <button class="mode-tab" data-mode="workout">⚡ Workout</button>
+                <button class="mode-tab" data-mode="free">🎛 Libre</button>
+            </div>
+
+            <!-- RUTA -->
+            <div class="mode-pane active" id="pane-ride">
+                <div class="ride-grid">
+                    <div class="ride-list-wrap">
+                        <input type="search" id="ride-search" class="ride-search" placeholder="Buscar (Alpe, Stelvio, tu GPX…)">
+                        <div id="ride-list" class="ride-list"><div class="loading-empty">Cargando rutas…</div></div>
+                        <label class="gpx-upload">⬆ Subir GPX
+                            <input type="file" id="gpx-input" accept=".gpx,application/gpx+xml">
+                        </label>
+                    </div>
+                    <div class="ride-preview">
+                        <div class="rp-head">
+                            <strong id="rp-name">Elegí una ruta</strong>
+                            <span id="rp-meta" class="muted"></span>
+                        </div>
+                        <canvas id="rp-profile"></canvas>
+                        <div class="rp-row">
+                            <label>Desde km <input type="number" id="rp-from" min="0" step="0.1" value="0"></label>
+                            <label>hasta km <input type="number" id="rp-to" min="0" step="0.1"></label>
+                            <button id="rp-full" class="ghost-btn">Ruta completa</button>
+                        </div>
+                        <div class="rp-row rp-diff">
+                            <label for="rp-diff">Dificultad <strong id="rp-diff-v">50%</strong></label>
+                            <input type="range" id="rp-diff" min="0" max="100" step="10" value="50">
+                            <span class="muted small">100% = pendiente real · 50% = default de Zwift</span>
+                        </div>
+                        <div class="rp-actions">
+                            <button id="ride-load" class="primary" disabled>Cargar ruta</button>
+                            <button id="ride-start" class="primary big" disabled>▶ Rodar</button>
+                            <button id="ride-pause" disabled>⏸ Pausar</button>
+                            <button id="ride-stop" disabled>⏹ Terminar</button>
+                        </div>
+                        <div class="rp-hint muted small" id="rp-hint">En modo Ruta el rodillo simula la pendiente: los watts los ponés vos con cambios y cadencia.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WORKOUT -->
+            <div class="mode-pane" id="pane-workout">
+                <div class="workout-head">
+                    <h3>Workout en ERG</h3>
+                    <div class="workout-state" id="wk-state">Sin cargar</div>
+                </div>
+                <div class="workout-loader" id="wk-loader">
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="pool">📚 Biblioteca</button>
+                        <button class="tab-btn" data-tab="custom">📝 JSON</button>
+                        <button class="tab-btn" data-tab="fit">⌚ Garmin .fit</button>
+                    </div>
+                    <div class="tab-pane active" id="tab-pool">
+                        <div class="wk-library" id="wk-library"><div class="loading-empty">Cargando workouts…</div></div>
+                    </div>
+                    <div class="tab-pane" id="tab-custom">
+                        <p class="hint">Pegá un workout en JSON: <code>{"name":"…","segments":[{"duration_s":300,"target_w":150,"label":"WU"}]}</code></p>
+                        <textarea id="json-input" rows="6" placeholder='{"name":"Mi entrenamiento","segments":[...]}'></textarea>
+                        <button id="btn-load-json" class="primary">Cargar JSON</button>
+                    </div>
+                    <div class="tab-pane" id="tab-fit">
+                        <p class="hint">Subí un <code>.fit</code> exportado desde Garmin Connect.</p>
+                        <div class="row-inline">
+                            <input type="file" id="fit-input" accept=".fit">
+                            <button id="btn-load-fit" class="primary">Cargar .fit</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="scenario-row">
+                    <label for="wk-scenario">🗺 Escenario</label>
+                    <select id="wk-scenario"><option value="">Camino genérico</option></select>
+                    <span class="muted small" id="wk-scenario-hint">El rodillo sigue en ERG; la ruta pone el paisaje y la velocidad.</span>
+                </div>
+                <div class="workout-loaded" id="wk-loaded" hidden>
+                    <div class="loaded-summary">
+                        <strong id="wk-name">—</strong>
+                        <span id="wk-meta" class="muted">—</span>
+                    </div>
+                    <div class="segment-timeline" id="segment-timeline"></div>
+                </div>
+                <div class="rp-actions">
+                    <button id="btn-workout-start" class="primary big" disabled>▶ Empezar</button>
+                    <button id="btn-workout-pause" disabled>⏸ Pausar</button>
+                    <button id="btn-workout-skip" disabled>⏭ Saltar bloque</button>
+                    <button id="btn-workout-stop" disabled>⏹ Terminar</button>
+                    <button id="btn-workout-clear" class="ghost-btn" hidden>✕ Quitar</button>
+                </div>
+            </div>
+
+            <!-- LIBRE -->
+            <div class="mode-pane" id="pane-free">
+                <div class="free-grid">
+                    <div class="erg" id="erg-panel">
+                        <label for="target">ERG manual: <strong><span id="target-display">150</span> W</strong>
+                            <span class="manual-hint" id="manual-hint">(bloqueado — hay un workout o ruta en curso)</span>
+                        </label>
+                        <input type="range" id="target" min="0" max="400" step="5" value="150">
+                        <div class="erg-buttons" id="erg-buttons"></div>
+                    </div>
+                    <div class="erg">
+                        <label>Pendiente simulada</label>
+                        <div class="erg-buttons">
+                            <button data-grade="0">0%</button>
+                            <button data-grade="2">2%</button>
+                            <button data-grade="4">4%</button>
+                            <button data-grade="6">6%</button>
+                            <button data-grade="8">8%</button>
+                        </div>
+                    </div>
+                    <div class="rp-actions">
+                        <button id="btn-session-start" class="primary">⏱ Grabar rodaje libre</button>
+                        <button id="btn-session-stop">⏹ Terminar y guardar</button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="rig-advanced">
+                <summary>Avanzado · control del rodillo</summary>
+                <div class="row-inline">
+                    <button id="btn-request">🎛 Tomar control</button>
+                    <button id="btn-trainer-start">▶ Trainer start</button>
+                    <button id="btn-trainer-stop">⏸ Trainer pause</button>
+                    <button id="btn-trainer-reset">↺ Reset</button>
+                    <button id="btn-session-save">💾 Guardar sesión ahora</button>
+                </div>
+                <p class="hint">Si el rodillo no responde a la resistencia: pedaleá unas vueltas y apretá “Tomar control”. Cerrá otras apps (Zwift, la app del fabricante) — el rodillo acepta una sola conexión Bluetooth.</p>
+            </details>
+        </div>
+
+        <!-- Resumen + gráfico -->
+        <section class="rig-stats">
+            <div class="stats" id="stats">
+                <h3>Sesión</h3>
+                <div class="stat-grid">
+                    <div><span>Duración</span><strong id="st-duration">00:00</strong></div>
+                    <div><span>Potencia media</span><strong id="st-avg-power">—</strong></div>
+                    <div><span>NP</span><strong id="st-np">—</strong></div>
+                    <div><span>Máx</span><strong id="st-max-power">—</strong></div>
+                    <div><span>Cadencia</span><strong id="st-avg-cadence">—</strong></div>
+                    <div><span>Velocidad</span><strong id="st-avg-speed">—</strong></div>
+                    <div><span>Distancia</span><strong id="st-distance">—</strong></div>
+                    <div><span>FC media / máx</span><strong id="st-hr">—</strong></div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="strip-head"><span>Potencia y FC · últimos 10 min</span><span class="muted" id="chart-legend"></span></div>
+                <canvas id="chart"></canvas>
+            </div>
+        </section>
+
+        <section class="trainer-recent">
+            <div class="trainer-recent-head">
+                <h2>Tus sesiones <span class="muted small">— descargá el TCX y subilo a Garmin Connect o Strava</span></h2>
+                <button id="btn-refresh-sessions" class="link-btn">↻ Refrescar</button>
+            </div>
+            <div id="trainer-sessions-list">
+                <div class="loading-empty">Cargando…</div>
+            </div>
+        </section>
+    </section>
+
+
+
+</main>
+
+<!-- Ajustes del ciclista -->
+<div class="modal-overlay" id="settings-modal" hidden>
+    <form class="modal-card" id="settings-form">
+        <div class="modal-head"><h2>Tus datos</h2><button type="button" class="modal-close" id="settings-close">✕</button></div>
+        <p class="hint">Se usan para las zonas de potencia, los watts de los workouts y la velocidad virtual en las rutas.</p>
+        <label>Nombre <input name="name" maxlength="40"></label>
+        <label>FTP (W) <input name="ftp_w" type="number" min="50" max="600" required></label>
+        <label>Peso (kg) <input name="weight_kg" type="number" min="30" max="200" step="0.5" required></label>
+        <label>FC máxima (ppm) <input name="max_hr" type="number" min="120" max="230" required></label>
+        <div class="modal-actions"><button type="submit" class="primary">Guardar</button></div>
+    </form>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="importmap">{"imports": {"three": "/static/vendor/three.module.min.js"}}</script>
+<script src="/static/rig.js?v=1"></script>
+<script src="/static/boot.js?v=1"></script>
+<script type="module" src="/static/scene3d.js?v=1"></script>
+</body>
+</html>
