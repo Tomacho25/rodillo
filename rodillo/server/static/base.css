@@ -69,3 +69,9 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.85em; 
 .modal-card .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin: -4px 0 4px; }
 .small-hint { opacity: 0.85; }
 [hidden] { display: none !important; }
+
+.strava-btn { background: #fc4c02; color: #fff; font-weight: 600; }
+.strava-link { border-color: rgba(252,76,2,0.45); color: #ff7a3d; background: rgba(252,76,2,0.1); }
+.ts-actions { display: inline-flex; gap: 6px; align-items: center; }
+
+.garmin-link { border-color: rgba(0,125,195,0.5); color: #4fb3ff; background: rgba(0,125,195,0.12); }

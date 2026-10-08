@@ -1,6 +1,26 @@
 // rodillo · arranque, ajustes del ciclista y lista de sesiones (TCX descargable).
 "use strict";
 
+// Sin conexión automática: descargar el TCX y abrir la página de importación
+const IMPORT_PAGES = {
+    garmin: "https://connect.garmin.com/modern/import-data",
+    strava: "https://www.strava.com/upload/select",
+};
+function manualCell(id, where) {
+    const label = where === "garmin" ? "⤴ Garmin" : "⤴ Strava";
+    return `<button class="link-btn ${where}-link" data-manual="${where}" data-id="${esc(id)}"
+        title="Descarga el TCX y abre ${where === "garmin" ? "Garmin Connect" : "Strava"} para importarlo">${label}</button>`;
+}
+
+function stravaCell(id) {
+    const S = window.RodilloStrava;
+    if (!S?.connected) return manualCell(id, "strava");
+    const act = S.uploaded(id);
+    if (act && act !== "dup") return `<a class="link-btn strava-link" href="https://www.strava.com/activities/${encodeURIComponent(act)}" target="_blank" rel="noopener">✓ Ver en Strava</a>`;
+    if (act === "dup") return `<span class="muted small">✓ ya estaba en Strava</span>`;
+    return `<button class="link-btn strava-link" data-strava="${esc(id)}">⤴ Strava</button>`;
+}
+
 async function loadTrainerSessions() {
     const list = $("trainer-sessions-list");
     try {
@@ -15,7 +35,7 @@ async function loadTrainerSessions() {
                     <div><strong>${esc(s.name)}</strong>
                         <span class="muted">${esc((s.start || "").replace("T", " ").slice(0, 16))} · ${Math.round((s.duration_s || 0) / 60)} min</span></div>
                     ${window.RodilloEngine
-                        ? `<button class="link-btn" data-tcx="${esc(s.id)}">⤓ TCX</button>`
+                        ? `<span class="ts-actions">${stravaCell(s.id)}${manualCell(s.id, "garmin")}<button class="link-btn" data-tcx="${esc(s.id)}">⤓ TCX</button></span>`
                         : `<a class="link-btn" href="/api/sessions/${encodeURIComponent(s.id)}/tcx" download>⤓ TCX</a>`}
                 </div>
                 <div class="ts-stats muted">
@@ -24,6 +44,19 @@ async function loadTrainerSessions() {
                 </div>
             </div>`).join("");
         list.querySelectorAll("[data-tcx]").forEach(b => b.addEventListener("click", () => window.RodilloEngine.downloadTcx(b.dataset.tcx)));
+        list.querySelectorAll("[data-manual]").forEach(b => b.addEventListener("click", async () => {
+            const where = b.dataset.manual;
+            const tab = window.open(IMPORT_PAGES[where], "_blank");   // abrir antes del await (bloqueador de popups)
+            if (tab) tab.opener = null;
+            await window.RodilloEngine.downloadTcx(b.dataset.id);
+            toast(`TCX descargado: arrastralo a la página de ${where === "garmin" ? "Garmin Connect (Importar datos)" : "Strava (Subir archivo)"} que se abrió`, "good");
+            if (!tab) toast("El navegador bloqueó la pestaña nueva: abrí " + IMPORT_PAGES[where], "warn");
+        }));
+        list.querySelectorAll("[data-strava]").forEach(b => b.addEventListener("click", async () => {
+            b.disabled = true; b.textContent = "Subiendo…";
+            try { await window.RodilloStrava.upload(b.dataset.strava); }
+            catch (e) { toast("Strava: " + e.message, "bad"); b.disabled = false; b.textContent = "⤴ Strava"; }
+        }));
     } catch (e) {
         list.innerHTML = `<div class="loading-empty err">No pude leer las sesiones: ${esc(e.message)}</div>`;
     }
@@ -68,6 +101,7 @@ $("hr-estimate").addEventListener("click", () => {
 // ---- versión web: conectar por Bluetooth o probar con el simulador
 if (window.RodilloEngine) {
     document.querySelectorAll(".web-only").forEach(el => { el.hidden = false; });
+    window.RodilloStrava?.render();          // "Conectar Strava" solo si hay link de activación
     const E = window.RodilloEngine;
     const busy = (btn, label) => { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = label; };
     const free = btn => { btn.disabled = false; btn.textContent = btn.dataset.label; };

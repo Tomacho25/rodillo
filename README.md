@@ -37,7 +37,10 @@ La primera vez la app te pide tres datos:
 
 **Los watts no los tenés que saber:** los mide el rodillo. Se cambian cuando quieras en **⚙ Ajustes**.
 
-Cada sesión queda guardada (en la web, dentro de tu navegador) y la descargás como **TCX** para subirla a **Garmin Connect** (Importar datos) o **Strava** (Subir actividad).
+Cada sesión queda guardada (en la web, dentro de tu navegador). Desde **Tus sesiones**:
+- **⤴ Garmin / ⤴ Strava**: descarga el TCX y abre la página de importación (arrastrás el archivo y listo).
+- **Subida automática a Strava** (opcional, para grupos chicos): quien administra una app de la [API de Strava](https://www.strava.com/settings/api) comparte un *link de activación* privado `…/rodillo/#strava=<client_id>.<client_secret>`. Cada persona lo abre una vez, aprieta **🟧 Conectar Strava** con su cuenta y desde ahí cada sesión se sube sola. El secreto nunca está en este repo (Strava exige `client_secret` y no admite PKCE); compartilo solo con gente de confianza y regeneralo si se filtra. Sin revisión de Strava, una app admite hasta 10 atletas. En la app de Strava, *Authorization Callback Domain* = el dominio donde está publicada (por ejemplo `tomacho25.github.io`).
+- **Garmin Connect** no tiene API pública para personas, así que ahí la subida es manual.
 
 ## Instalarla en tu computador (opcional)
 

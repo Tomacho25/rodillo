@@ -35,7 +35,7 @@ def main() -> None:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     html = html.replace('"/static/', '"./static/')
     html = html.replace("<head>", '<head>\n    <meta name="rodillo-mode" content="web">', 1)
-    html = html.replace('<script src="./static/rig.js', '<script src="./static/engine.js?v=1"></script>\n<script src="./static/rig.js', 1)
+    html = html.replace('<script src="./static/rig.js', '<script src="./static/engine.js?v=2"></script>\n<script src="./static/strava.js?v=1"></script>\n<script src="./static/rig.js', 1)
     (OUT / "index.html").write_text(html, encoding="utf-8")
 
     data = OUT / "data" / "routes"

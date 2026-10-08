@@ -647,6 +647,7 @@ async function persist(name, finished) {
     try {
         await DB.put("sessions", { ...meta, tcx: toTcx(name, start, se.samples) });
         emit({ type: "session_saved", data: { id, name } });
+        window.RodilloStrava?.onSessionSaved(id);
     } catch (e) {
         Engine.toast("No pude guardar la sesión en el navegador: " + e.message, "bad");
     }
@@ -879,5 +880,6 @@ Engine.downloadTcx = async id => {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 };
 Engine.state = () => stateMsg();
+Engine.getSession = id => DB.get("sessions", id);
 Engine._debug = { S, persist, toTcx };   // para los tests e2e
 })();
