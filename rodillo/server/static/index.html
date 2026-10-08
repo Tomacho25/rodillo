@@ -18,6 +18,9 @@
                 <h1 id="rig-greeting">Rodillo</h1>
             </div>
             <div class="home-head-actions">
+                <button id="btn-connect" class="conn-pill connect-btn pill-btn web-only" hidden>🔗 Conectar rodillo</button>
+                <button id="btn-connect-hr" class="conn-pill neutral pill-btn web-only" hidden>♥ Conectar banda</button>
+                <button id="btn-demo" class="conn-pill neutral pill-btn web-only" hidden>🎮 Probar sin rodillo</button>
                 <button id="btn-settings" class="conn-pill neutral pill-btn" title="FTP, peso y FC máxima">⚙ Ajustes</button>
                 <span id="rig-hr-pill" class="conn-pill neutral" title="Banda de FC">♥ sin banda</span>
                 <div id="status" class="conn-pill disconnected">Desconectado</div>
@@ -303,11 +306,17 @@
 <div class="modal-overlay" id="settings-modal" hidden>
     <form class="modal-card" id="settings-form">
         <div class="modal-head"><h2>Tus datos</h2><button type="button" class="modal-close" id="settings-close">✕</button></div>
-        <p class="hint">Se usan para las zonas de potencia, los watts de los workouts y la velocidad virtual en las rutas.</p>
+        <p class="hint">Se usan para tus zonas de potencia, los watts de los workouts y la velocidad en las rutas.</p>
         <label>Nombre <input name="name" maxlength="40"></label>
-        <label>FTP (W) <input name="ftp_w" type="number" min="50" max="600" required></label>
         <label>Peso (kg) <input name="weight_kg" type="number" min="30" max="200" step="0.5" required></label>
+        <label>FTP (W) <input name="ftp_w" type="number" min="50" max="600" required></label>
+        <p class="hint">El <b>FTP</b> es la potencia que podés sostener ~1 hora. ¿No lo sabés?
+            <button type="button" class="hint-btn" id="ftp-estimate">Estimar con mi peso</button>
+            y después hacé el <b>FTP Test 20min</b> (Workout → Test): la app lo calcula sola al terminar.</p>
         <label>FC máxima (ppm) <input name="max_hr" type="number" min="120" max="230" required></label>
+        <p class="hint">¿No la sabés? Tu edad: <input id="age-input" class="mini-input" type="number" min="10" max="90" placeholder="años">
+            <button type="button" class="hint-btn" id="hr-estimate">Estimar</button></p>
+        <p class="hint small-hint">Los <b>watts los mide el rodillo</b>: no hace falta saberlos. El peso se usa para la velocidad en subida.</p>
         <div class="modal-actions"><button type="submit" class="primary">Guardar</button></div>
     </form>
 </div>

@@ -118,7 +118,8 @@ function toast(msg, kind = "") {
 
 function connectWs() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    // Versión web (GitHub Pages): el "servidor" es engine.js dentro del navegador
+    const ws = window.RodilloEngine?.socket ? window.RodilloEngine.socket() : new WebSocket(`${proto}//${location.host}/ws`);
     R.ws = ws;
     ws.onopen = () => {
         if (R.everConnected && !R.wsUp) toast("Reconectado al servidor");
@@ -165,7 +166,7 @@ function renderStatus() {
     const st = $("status");
     if (!st) return;
     if (!R.wsUp) {
-        st.textContent = "Sin servidor";
+        st.textContent = window.RodilloEngine ? "Cargando…" : "Sin servidor";
         st.className = "conn-pill disconnected";
     } else if (R.trainerConnected && R.simulated) {
         st.textContent = "Simulador";
@@ -190,6 +191,7 @@ function onSample(s, ride, wk) {
     R.lastSampleAt = now;
     if (ride) { R.ride = ride; R.rideAt = now; }
     if (wk) {
+        trackFtpTest(wk, s);
         R.workout = wk;
         if (wk.state === "running") {
             const p3 = avgLast("power", 3);
@@ -224,6 +226,33 @@ function avgLast(key, seconds) {
 }
 
 function power3s() { return avgLast("power", R.smoothS); }
+
+// Test de FTP: el bloque libre de 20' del workout "FTP Test". Al terminarlo se
+// calcula FTP = 95% de la potencia media y se ofrece guardarlo en los ajustes.
+const FTP_TEST = { seg: -1, sum: 0, n: 0, done: false };
+function trackFtpTest(wk, s) {
+    const w = R.workoutLoaded;
+    const seg = w?.segments?.[wk.segment_idx];
+    const isTestBlock = /ftp/i.test(w?.name || "") && seg && seg.grade_pct != null && seg.duration_s >= 1140;
+    if (wk.state === "running" && isTestBlock) {
+        if (FTP_TEST.seg !== wk.segment_idx) Object.assign(FTP_TEST, { seg: wk.segment_idx, sum: 0, n: 0, done: false });
+        if (s.power != null) { FTP_TEST.sum += s.power; FTP_TEST.n++; }
+    } else if (FTP_TEST.seg >= 0 && !FTP_TEST.done && wk.segment_idx !== FTP_TEST.seg) {
+        FTP_TEST.done = true;
+        const blockS = w?.segments?.[FTP_TEST.seg]?.duration_s || 1200;
+        if (FTP_TEST.n >= blockS * 4 * 0.85) offerFtp(Math.round(FTP_TEST.sum / FTP_TEST.n));   // ≥85% del bloque registrado
+    }
+}
+async function offerFtp(avg) {
+    const ftp = Math.round(avg * 0.95);
+    showBanner("Test de FTP", `${ftp} W`, `95% de tus ${avg} W de promedio en los 20′`);
+    beep(880, 0.3);
+    setTimeout(async () => {
+        if (!confirm(`Tu FTP estimado es ${ftp} W (95% de ${avg} W en 20 minutos).\n\n¿Lo guardo en tus ajustes? Las zonas y los workouts se recalculan.`)) return;
+        const r = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ftp_w: ftp }) });
+        if (r.ok) { toast(`FTP actualizado a ${ftp} W`, "good"); loadRoutes(); }
+    }, 1500);
+}
 
 function setSmoothing(sec) {
     R.smoothS = sec;

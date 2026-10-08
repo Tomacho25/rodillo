@@ -2,13 +2,17 @@
 
 **App open source para entrenar en rodillo inteligente.** Conectás tu rodillo por Bluetooth, elegís una subida épica y la rodás en 3D: la resistencia sigue la pendiente real del camino. O cargás un workout y el rodillo maneja los watts por vos.
 
-Corre en tu computador, se abre en el navegador y no necesita cuenta, suscripción ni internet.
+## 👉 Usala sin instalar nada: **[tomacho25.github.io/rodillo](https://tomacho25.github.io/rodillo/)**
+
+Abrís el link en **Chrome o Edge** (computador o Android), apretás **🔗 Conectar rodillo** y listo. Sin cuenta, sin suscripción, sin instalar nada. ¿No tenés el rodillo a mano? Apretá **🎮 Probar sin rodillo**.
+
+> En **iPhone/iPad** Safari no soporta Bluetooth web: usá la app gratuita **Bluefy** y abrí el mismo link ahí.
 
 ![Subiendo el Alpe d'Huez](docs/alpe.png)
 
 ![Sa Calobra, Mallorca](docs/sacalobra.png)
 
-> **English:** open-source app for smart trainers (Bluetooth FTMS). Ride epic climbs in 3D with grade simulation, run ERG workouts scaled to your FTP, and export every session as TCX for Garmin Connect or Strava. Runs locally in your browser — no account, no subscription. The UI is in Spanish.
+> **English:** use it right away at **[tomacho25.github.io/rodillo](https://tomacho25.github.io/rodillo/)** (Chrome/Edge, Web Bluetooth). Open-source app for smart trainers (Bluetooth FTMS). Ride epic climbs in 3D with grade simulation, run ERG workouts scaled to your FTP, and export every session as TCX for Garmin Connect or Strava. Runs locally in your browser — no account, no subscription. The UI is in Spanish.
 
 ## Qué hace
 
@@ -20,6 +24,24 @@ Corre en tu computador, se abre en el navegador y no necesita cuenta, suscripci�
 - **"¿Cuánto tiempo tenés?":** filtra rutas y workouts por duración y estima cuánto vas a tardar a tu ritmo.
 - **Escena 3D** con [three.js](https://threejs.org): terreno y paisaje por ruta (Alpes, Provenza, Andes, lagos, costa), cielo según la hora real (de noche hay estrellas y foco), y un ciclista que pedalea a tu cadencia, se para en las subidas duras y se inclina en las curvas. Si tu navegador no tiene WebGL, se usa una versión 2D.
 - **Sesiones en TCX:** cada sesión queda guardada y la descargás para subirla a Garmin Connect o Strava. En modo Ruta, el TCX lleva el recorrido GPS.
+
+## Primeros pasos
+
+La primera vez la app te pide tres datos:
+
+| Dato | Para qué | ¿No lo sabés? |
+|---|---|---|
+| **Peso** | Velocidad en subida (con los mismos watts, más liviano = más rápido) y W/kg | Pesate 🙂 |
+| **FTP** | Tus zonas de potencia y los watts de todos los workouts | Apretá **“Estimar con mi peso”** (≈2,5 W/kg) y después hacé el **FTP Test 20min** (Workout → Test): al terminar, la app calcula tu FTP (95% de tus 20′) y te ofrece guardarlo |
+| **FC máxima** | Tus zonas de frecuencia cardíaca | Poné tu edad y apretá **“Estimar”** |
+
+**Los watts no los tenés que saber:** los mide el rodillo. Se cambian cuando quieras en **⚙ Ajustes**.
+
+Cada sesión queda guardada (en la web, dentro de tu navegador) y la descargás como **TCX** para subirla a **Garmin Connect** (Importar datos) o **Strava** (Subir actividad).
+
+## Instalarla en tu computador (opcional)
+
+La versión web alcanza para entrenar. Instalar la versión con Python sirve si querés usar Safari/Firefox, cargar workouts `.fit` o guardar las sesiones como archivos.
 
 ## Requisitos
 
@@ -75,6 +97,8 @@ pytest
 | `rodillo/server/epic_routes.py` | Generador de las rutas épicas (zigzags numerados, pueblos, paisaje) |
 | `rodillo/server/static/scene3d.js` | Escena 3D (three.js r169, sin build, en `static/vendor/`) |
 | `rodillo/server/static/rig.js` | HUD, modos y escena 2D de respaldo |
+| `rodillo/server/static/engine.js` | Versión web: el "servidor" dentro del navegador (Web Bluetooth FTMS, workouts, rutas, sesiones en IndexedDB) |
+| `scripts/build_web.py` | Arma la versión web en `site/` (la publica GitHub Actions en GitHub Pages) |
 
 ## Aclaraciones
 
