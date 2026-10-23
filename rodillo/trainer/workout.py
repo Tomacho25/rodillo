@@ -198,6 +198,9 @@ class TrainerControlProtocol(Protocol):
 PlayerEvent = Callable[[dict], Awaitable[None]]
 
 
+TARGET_RETRY_S = 2.0   # cada cuánto reintentar un target que el rodillo rechazó
+
+
 class WorkoutPlayer:
     """Ejecuta un Workout sobre el trainer, segmento por segmento.
 
@@ -222,6 +225,8 @@ class WorkoutPlayer:
         self._segment_started_at: float | None = None
         self._paused_at: float | None = None
         self._skip_event: asyncio.Event = asyncio.Event()
+        # el target del bloque actual no llegó al rodillo (GATT 0x80): se reintenta
+        self._target_pending: bool = False
 
     # ----- public API -----
 
@@ -344,8 +349,19 @@ class WorkoutPlayer:
             return self._paused_at - self._segment_started_at
         return time.monotonic() - self._segment_started_at
 
-    async def _apply_segment_target(self, seg: Segment) -> None:
+    async def _apply_segment_target(self, seg: Segment, *, retry: bool = False) -> bool:
+        """Manda el target del bloque. Si el rodillo lo rechaza queda pendiente.
+
+        El Flux S devuelve GATT 0x80 si está quieto o si el control se perdió
+        (típico al apretar Empezar antes de pedalear). Antes se mandaba una
+        sola vez: el bloque entero corría sin resistencia. Ahora el loop de
+        `_run` reintenta cada TARGET_RETRY_S, pidiendo control primero.
+        """
         try:
+            if retry:
+                request = getattr(self._trainer, "request_control", None)
+                if request is not None:
+                    await request()
             if seg.mode == "power":
                 assert seg.target_w is not None
                 await self._trainer.set_target_power(int(seg.target_w))
@@ -356,7 +372,14 @@ class WorkoutPlayer:
                 # free: liberar el rodillo
                 await self._trainer.set_target_power(0)
         except Exception as e:
-            logger.warning("Error aplicando target de segmento: %s", e)
+            if not self._target_pending:
+                logger.warning("Error aplicando target de segmento (se reintenta): %s", e)
+            self._target_pending = True
+            return False
+        if self._target_pending:
+            logger.info("Target de segmento aplicado tras reintento")
+        self._target_pending = False
+        return True
 
     async def _emit(self, kind: str) -> None:
         if self._on_event is None:
@@ -375,6 +398,7 @@ class WorkoutPlayer:
                 self._segment_started_at = time.monotonic()
                 self._skip_event.clear()
                 await self._apply_segment_target(seg)
+                last_try = time.monotonic()
                 await self._emit("segment_change")
 
                 # esperar duración, respetando pause y skip
@@ -390,6 +414,9 @@ class WorkoutPlayer:
                     remaining = self._segment_started_at + seg.duration_s - now
                     if remaining <= 0:
                         break
+                    if self._target_pending and now - last_try >= TARGET_RETRY_S:
+                        last_try = now
+                        await self._apply_segment_target(seg, retry=True)
                     try:
                         await asyncio.wait_for(self._skip_event.wait(), timeout=min(0.5, remaining))
                         # skip

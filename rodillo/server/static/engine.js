@@ -327,14 +327,23 @@ class WorkoutPlayer {
         if (this.segStart == null) return 0;
         return (this.state === "paused" && this.pausedAt != null ? this.pausedAt : now()) - this.segStart;
     }
-    async apply(s) {
+    // Si el rodillo rechaza el target (GATT 0x80: quieto o recién conectado) queda
+    // pendiente y loop() lo reintenta cada 2 s pidiendo control; antes el bloque
+    // entero corría sin resistencia.
+    async apply(s, retry = false) {
         const t = Engine.trainer;
-        if (!t) return;
+        if (!t || !s) return;
+        this.lastTry = now();
         try {
+            if (retry) await t.requestControl?.();
             if (s.target_w != null) await t.setTargetPower(s.target_w);
             else if (s.grade_pct != null) await t.setGrade(s.grade_pct);
             else await t.setTargetPower(0);
-        } catch (e) { console.warn("target", e); }
+            this.pending = false;
+        } catch (e) {
+            if (!this.pending) console.warn("target rechazado, se reintenta", e);
+            this.pending = true;
+        }
     }
     async start() {
         if (!this.workout) throw new Error("No hay workout cargado");
@@ -354,6 +363,10 @@ class WorkoutPlayer {
         if (this.state !== "running") return;
         const s = this.seg();
         // el deadline se recalcula siempre: resume() corre segStart por lo pausado
+        if (this.pending && !this._retrying && now() - this.lastTry >= 2) {
+            this._retrying = true;
+            try { await this.apply(s, true); } finally { this._retrying = false; }
+        }
         if (this._skip || now() >= this.segStart + s.duration_s) {
             this.done += s.duration_s;
             if (this.idx + 1 < this.workout.segments.length) return this.enter(this.idx + 1);
